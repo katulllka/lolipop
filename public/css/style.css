@@ -1,0 +1,11 @@
+.js-map {
+   width: 500px;
+   height: 500px;
+   background-color: antiquewhite;
+}
+
+.js-edit-msg, .js-delete-msg {
+   margin: 10px;
+   cursor: pointer;
+   color: gray;
+}
