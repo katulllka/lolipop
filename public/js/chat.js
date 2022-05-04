@@ -1,100 +1,96 @@
 let socket = new WebSocket("ws://localhost:3001");
-let chatMsgLimit = 50
-let editMessageId = null
-let deleteMessageId = null
-const maxMsgLength = 250
+let actionMessageId = null
 let textInput = document.querySelector('.js-message-field');
 let submitButton = document.querySelector('.js-submit');
-
+let TEXT_SAVE_BUTTON = 'Сохранить'
+let TEXT_SEND_BUTTON = 'Отправить'
 socket.binaryType = "arraybuffer";
+let messagesList = document.getElementById('messages');
+let status = ''
+let isVisibleSendButton = true
 
-function UserException(message) {
-    this.message = message;
-    this.name = "Исключение, определённое пользователем";
+function createMessageNode(text, msgId, currentUserMsg) {
+    let messageElem = document.createElement('div');
+    messageElem.classList.add('js-message')
+    let messageText = document.createElement('span');
+    messageText.textContent = text;
+    messageElem.append(messageText);
+    messageElem.setAttribute('id', msgId)
+
+    if (currentUserMsg) {
+        let editMessageElem = document.createElement('a');
+        editMessageElem.classList.add('js-edit-msg')
+        editMessageElem.textContent = 'edit';
+        let deleteMessageElem = document.createElement('a');
+        deleteMessageElem.classList.add('js-delete-msg')
+        deleteMessageElem.textContent = 'x';
+        messageElem.setAttribute('current-user-msg', currentUserMsg)
+        messageElem.append(editMessageElem);
+        messageElem.append(deleteMessageElem);
+    }
+    return messageElem
+
 }
 
-// отправка сообщения из формы
-let submitForm = document.querySelector('.js-submit-form');
-submitForm.onsubmit = function (submitEvent) {
-    try {
-        if (textInput.value === '') {
-            throw new UserException("Введите сообщение в поле ввода");
-        }
-        if (textInput.value.length > maxMsgLength) {
-            throw new UserException("Сообщение слишком длинное");
-        }
-        if (submitEvent.submitter.defaultValue === 'Сохранить') {
-            submitButton.value = 'Отправить'
-        }
-        const outgoingMessage = {message: textInput.value, id: editMessageId};
-        const message = JSON.stringify(outgoingMessage);
-        textInput.value = null
-        editMessageId = null
-        socket.send(message);
-        return false;
-    } catch (e) {
-        alert(e.message);
+submitButton.onclick = function () {
+    status = 'newMsg';
+    if (isVisibleSendButton === false) {
+        submitButton.value = TEXT_SEND_BUTTON
+        status = 'updateMsg'
+        isVisibleSendButton = true
     }
+    const outgoingMessage = {message: textInput.value, id: actionMessageId, status: status};
+    const message = JSON.stringify(outgoingMessage);
+    socket.send(message);
+    return false;
 };
 
-
 // получение сообщения - отобразить данные в div#messagesы
-socket.onmessage = function (event) {
-    if (chatMsgLimit > 0) {
-        const {message: text, id: msgId} = JSON.parse(event.data);
-        const findElemById = document.querySelector(`[msgId='${msgId}'] span`)
-        const deleteElement = document.querySelector(`[msgId='${msgId}']`)
-
-        if (!text) {
-            deleteElement.remove()
-        } else if (text.length <= 15 && text.length !== 0) {
-            if (findElemById === null) {
-                let messageElem = document.createElement('div');
-                let msgText = document.createElement('span');
-                let editMessageElem = document.createElement('a');
-                editMessageElem.classList.add('js-edit-msg')
-                editMessageElem.textContent = 'edit';
-                let deleteMessageElem = document.createElement('a');
-                deleteMessageElem.classList.add('js-delete-msg')
-                deleteMessageElem.textContent = 'x';
-
-                msgText.textContent = text;
-                messageElem.append(msgText);
-                messageElem.append(editMessageElem);
-                messageElem.append(deleteMessageElem);
-
-                messageElem.setAttribute('msgId', msgId)
-                document.getElementById('messages').prepend(messageElem);
-                chatMsgLimit -= 1
-            } else {
-                findElemById.textContent = text
-            }
-        }
-    } else {
-        alert("Вы достигли лимита сообщений")
+socket.onmessage = function (eventMessage) {
+    let newMessages = JSON.parse(eventMessage.data)
+    let documentFragment = document.createDocumentFragment();
+    if (Array.isArray(newMessages)){
+        newMessages.forEach(msg => {
+            documentFragment.appendChild(createMessageNode(msg.message, msg.id ));
+        });
+        messagesList.prepend(documentFragment);
+        return
     }
 
-    // Клик на кнопку редактирования сообщения
-    let editLink = document.querySelector('.js-edit-msg');
-    editLink.onclick = function (event) {
-        submitButton.value = 'Сохранить'
-        editMessageId = event.target.parentElement.attributes.msgid?.value
-        let messageText = event.target.parentElement.firstElementChild.innerHTML
-        textInput.value = messageText
-        return false;
-    };
-
-    // Клик на кнопку удаления сообщения
-    let deleteLink = document.querySelector('.js-delete-msg');
-    deleteLink.onclick = function (event) {
-        deleteMessageId = event.target.parentElement.attributes.msgid?.value
-        console.log(deleteMessageId)
-        let outgoingMessage = {message: null, id: deleteMessageId};
-        let message = JSON.stringify(outgoingMessage);
-        socket.send(message);
-        return false;
-    };
+    const {message: text, id: msgId, currentUserMsg: currentUserMsg, status: status} = newMessages;
+    const messageText = document.querySelector(`[id='${msgId}'] span`)
+    const deleteElement = document.getElementById(msgId);
+    let messageElem = '';
+    if (status === 'removeMsg') {
+        deleteElement && deleteElement.remove()
+    } else if (status === 'newMsg' && currentUserMsg) {
+        messageElem = createMessageNode(text, msgId, currentUserMsg)
+        textInput.value = ''
+        messagesList.prepend(messageElem);
+    } else if (status === 'newMsg' && !currentUserMsg) {
+        messageElem = createMessageNode(text, msgId)
+        textInput.value = ''
+        messagesList.prepend(messageElem);
+    } else if (status === 'updateMsg') {
+        messageText.textContent = text
+        textInput.value = ''
+    }
 }
 
+messagesList.onclick = function (clickEvent) {
+    let messageId = clickEvent.target.closest('.js-message').getAttribute("id");
+    actionMessageId = messageId;
 
+    if (clickEvent.target.className === 'js-edit-msg') {
+        submitButton.value = TEXT_SAVE_BUTTON
+        textInput.value = document.querySelector(`[id="${messageId}"] span`).textContent;
+        isVisibleSendButton = false
 
+    } else if (clickEvent.target.className === 'js-delete-msg') {
+        let outgoingMessage = {message: '', id: actionMessageId, status: 'removeMsg'};
+        let message = JSON.stringify(outgoingMessage);
+        actionMessageId = null
+        socket.send(message);
+    }
+    return false;
+};
