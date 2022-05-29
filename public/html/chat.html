@@ -3,16 +3,20 @@
 <head>
     <meta charset="utf-8"/>
     <title>Hello Chat</title>
+    <link rel="stylesheet" href="../css/style.css">
 </head>
 <body><!-- форма сообщений -->
-<form name="publish" class="js-submit-form">
-    <input type="text" class="js-message-field" name="message">
+<form name="publish" class="js-submit-form js-submit-form">
+    <input type="text" class="js-message-field js-message-field" name="message"
+           maxlength="250"
+           required oninvalid="setCustomValidity('Введите сообщение')"
+           onchange="try{setCustomValidity('')}catch(e){}"
+           placeholder="Ваше сообщение">
     <input type="submit" class="js-submit" value="Отправить">
 </form>
 
 <!-- div с сообщениями -->
 <div id="messages"></div>
 <script src="../js/chat.js"></script>
-<link rel="stylesheet" href="../css/style.css">
 </body>
 </html>
