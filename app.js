@@ -23,7 +23,8 @@ let msgArray = []
 let deleteMsgObj
 // Редактируемое сообщение
 let editMsgObj
-
+// Переменная, хранящая функцию таймаута для проверки соединения в WS
+let tm
 
 // Функция отправки сообщений пользователям
 function sendMessage({msgObj, users, user, lastMsg}) {
@@ -50,6 +51,21 @@ function sendMessage({msgObj, users, user, lastMsg}) {
 
 // Проверяем подключение
 wsServer.on('connection', function (ws) {
+    function ping() {
+        ws.send('__ping__');
+        tm = setTimeout(function () {
+            // Получаем ID этого пользователя
+            let id = users.indexOf(user)
+            // Убираем этого пользователя
+            users.splice(id, 1)
+            clearInterval(intervalId)
+        }, 5000);
+    }
+    function pong() {
+        clearTimeout(tm);
+    }
+    const intervalId = setInterval(ping, 10000);
+
     let user = {
         connection: ws
     }
@@ -59,19 +75,22 @@ wsServer.on('connection', function (ws) {
     //Загружаем пользователю существующую историю сообщений
     let sendHistoryMessage = JSON.stringify(
         msgArray.map(msg => {
-           let customMessage = {
-               message:  msg.message,
-               status:  'newMsg',
-               id:  msg.id
-           }
-           return customMessage
-    }));
+            let customMessage = {
+                message: msg.message,
+                status: 'newMsg',
+                id: msg.id
+            }
+            return customMessage
+        }));
     user.connection.send(sendHistoryMessage)
 
     // Подписываемся на получение сообщений от клиента
     ws.on('message', function (message) {
+        if (String(message) === '__pong__') {
+            pong();
+            return;
+        }
         let msgObj = JSON.parse(message)
-
         msgObj.message = msgObj.message.substr(0, MAX_MSG_LENGTH)
 
         let lastMsg
@@ -110,16 +129,16 @@ wsServer.on('connection', function (ws) {
     })
     // Делаем действие при выходе пользователя из чата
     ws.on('close', function () {
-            // Получаем ID этого пользователя
-            let id = users.indexOf(user)
-            // Убираем этого пользователя
-            users.splice(id, 1)
-        },
-        ws.on('error', function () {
-            // Получаем ID этого пользователя
-            let id = users.indexOf(user)
-            // Убираем этого пользователя
-            users.splice(id, 1)
-        })
-    )
+        // Получаем ID этого пользователя
+        let id = users.indexOf(user)
+        // Убираем этого пользователя
+        users.splice(id, 1)
+    })
+    ws.on('error', function () {
+        // Получаем ID этого пользователя
+        let id = users.indexOf(user)
+        // Убираем этого пользователя
+        users.splice(id, 1)
+    })
+
 })

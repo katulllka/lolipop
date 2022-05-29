@@ -47,6 +47,11 @@ submitButton.onclick = function () {
 
 // получение сообщения - отобразить данные в div#messagesы
 socket.onmessage = function (eventMessage) {
+    if (eventMessage.data === '__ping__') {
+        console.log('onmessage', eventMessage.data)
+        socket.send('__pong__');
+        return;
+    }
     let newMessages = JSON.parse(eventMessage.data)
     let documentFragment = document.createDocumentFragment();
     if (Array.isArray(newMessages)){
