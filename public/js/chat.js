@@ -18,6 +18,14 @@ function createMessageNode(text, msgId, currentUserMsg) {
     messageElem.setAttribute('id', msgId)
 
     if (currentUserMsg) {
+        // сдесь можно сразу он клик определить editMessageElem.onclick = () => {
+        //
+        //
+        // }
+        // editMessageElem.onclick = onMsgBtnClick.bind(this, msgId)
+        // function onMsgBtnClick(msgId, event) {
+        //
+        // }
         let editMessageElem = document.createElement('a');
         editMessageElem.classList.add('js-edit-msg')
         editMessageElem.textContent = 'edit';
@@ -83,11 +91,15 @@ socket.onmessage = function (eventMessage) {
 }
 
 messagesList.onclick = function (clickEvent) {
+    //нужно при функции бинд,
     let messageId = clickEvent.target.closest('.js-message').getAttribute("id");
     actionMessageId = messageId;
 
+
+    //классов если будет несколько то ошибка
     if (clickEvent.target.className === 'js-edit-msg') {
         submitButton.value = TEXT_SAVE_BUTTON
+        ////не надо завязываться на дом, а надо хранить в буфере весь чат
         textInput.value = document.querySelector(`[id="${messageId}"] span`).textContent;
         isVisibleSendButton = false
 
